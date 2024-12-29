@@ -12,4 +12,12 @@ config_version=5
 
 config/name="2d Chess v3"
 config/features=PackedStringArray("4.3", "Forward Plus")
-config/icon="res://icon.svg"
+
+[autoload]
+
+EnumBus="*res://Scripts/Globals/enum_bus.gd"
+SignalBus="*res://Scripts/Globals/signal_bus.gd"
+
+[display]
+
+window/stretch/mode="canvas_items"
