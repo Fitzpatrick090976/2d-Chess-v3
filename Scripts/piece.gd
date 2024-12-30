@@ -7,7 +7,7 @@ class_name Piece
 @export var piece_tile_index: int # i.e. parent's tile index
 @export var piece_colour: EnumBus.Colour
 @export var piece_type: EnumBus.Type
-@export var piece_legal_moves: Array
+@export var piece_legal_moves: Array[Tile]
 
 # Piece Visual Representation
 
