@@ -1,5 +1,7 @@
 extends GridContainer
 
+class_name Board
+
 const BOARD_TILE_COUNT: int = 64
 const BOARD_TILE_PIECE_OFFSET: Vector2 = Vector2(32, 32)
 
@@ -10,6 +12,9 @@ const BOARD_TILE_PIECE_OFFSET: Vector2 = Vector2(32, 32)
 func _ready() -> void:
 	
 	SignalBus.start_turn.connect(_on_start_turn)
+	SignalBus.move_piece.connect(_on_move_piece)
+	SignalBus.enable_highlight_tile.connect(_on_enable_highlight_tile)
+	SignalBus.enable_tile_indicators.connect(_on_enable_tile_indicators)
 	
 	var board_parsed_result: Array[Tile] = parse_board_piece_setup()
 	
@@ -36,19 +41,31 @@ func _on_start_turn(colour: EnumBus.Colour):
 	elif colour == EnumBus.Colour.Black:
 		SignalBus.enable_white_control.emit(false)
 		SignalBus.black_move.emit()
+	
+	for tile: Tile in get_children():
+		
+		var piece: Piece = tile.tile_piece
+		if piece.piece_exist:
+			for move: Tile in piece.piece_legal_moves:
+				
+				print(move.tile_index, "\n")
 
 func delete_board_tile_piece_sprites():
 	
 	for board_tile: Tile in get_children():
-		for board_tile_piece: Piece in board_tile.get_children():
+		for board_tile_piece in board_tile.get_children():
+			if board_tile_piece is not Piece:
+				continue
+			
 			board_tile_piece.queue_free()
 
 func instance_board_tile_piece_sprites():
 	
 	for board_tile: Tile in get_children():
 		var board_tile_piece: Piece = board_tile.tile_piece
-		add_child(board_tile_piece)
+		board_tile.add_child(board_tile_piece)
 		board_tile_piece.set_piece_sprite()
+		board_tile_piece.set_collision_area()
 		board_tile_piece.global_position = board_tile.get_global_rect().position + BOARD_TILE_PIECE_OFFSET
 
 func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
@@ -119,9 +136,9 @@ func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 		# For each available direction, determine moves
 		for dir: EnumBus.Dir in piece_dirs:
 			
-			generate_legal_moves_for_direction(repeat, dir, board_tile.tile_index, board_tile_piece.piece_type, colour)
+			generate_legal_moves_for_direction(repeat, dir, board_tile.tile_index, board_tile_piece.piece_type, colour, board_tile_piece)
 
-func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile_index: int, type: EnumBus.Type, colour: EnumBus.Colour):
+func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile_index: int, type: EnumBus.Type, colour: EnumBus.Colour, piece: Piece):
 	
 	# Check if we're standing on edge tile
 	if check_if_on_edge_tile(src_tile_index, type) == true:
@@ -148,16 +165,16 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 			return
 		elif other_piece.piece_colour != colour:
 			# You may move here & capture the piece -- end of this direction, stop searching
-			dest_tile.tile_piece.piece_legal_moves.append(dest_tile)
+			piece.piece_legal_moves.append(dest_tile)
 			return
 		
 	elif dest_tile.tile_piece.piece_exist == false:
 		# You may move here, as the space is empty
-		dest_tile.tile_piece.piece_legal_moves.append(dest_tile)
+		piece.piece_legal_moves.append(dest_tile)
 	
 	# Check if piece is "repeat", i.e. should we continue searching
 	if repeat:
-		generate_legal_moves_for_direction(repeat, dir, dest_tile_index, type, colour)
+		generate_legal_moves_for_direction(repeat, dir, dest_tile_index, type, colour, piece)
 	elif not repeat:
 		return
 
@@ -208,10 +225,11 @@ func check_if_dir_forbidden(dir: EnumBus.Dir, src_tile_index: int, type: EnumBus
 		]
 		
 		# "What range are we in?"
-		var my_range: Array[int]
+		var my_range: Array
 		for normal_edge_tiles_range in normal_edge_tiles:
 			if src_tile_index in normal_edge_tiles_range:
 				my_range = normal_edge_tiles_range
+				break
 		
 		# We can now determine with range if direction is forbidden
 		var normal_edge_tiles_forbidden_dirs: Dictionary = {
@@ -243,11 +261,11 @@ func check_if_dir_forbidden(dir: EnumBus.Dir, src_tile_index: int, type: EnumBus
 				EnumBus.Dir.NorthWest, EnumBus.Dir.NorthEast
 			],
 			str(range(7, 64, 8)): [ # Right column
-				EnumBus.Dir.South, 
+				EnumBus.Dir.East, 
 				EnumBus.Dir.NorthEast, EnumBus.Dir.SouthEast
 			],
 			str(range(57, 63)): [ # Bottom row
-				EnumBus.Dir.East, 
+				EnumBus.Dir.South, 
 				EnumBus.Dir.SouthEast, EnumBus.Dir.SouthWest
 			],
 			str(range(0, 57, 8)): [ # Left column
@@ -353,3 +371,32 @@ func parse_board_piece_setup():
 			board_tile_dark = true
 	
 	return board_parsed_result
+
+# Piece Movement
+
+func _on_move_piece(piece_src_tile: Tile, piece_dest_tile: Tile):
+	
+	pass
+
+# Board Tile Visual Management
+
+	# Highlight Tile
+
+func _on_enable_highlight_tile(enable: bool, tile_index: int):
+	
+	var board_matrix: Array = get_children()
+	var board_tile_target: Tile = board_matrix[tile_index]
+	
+	if enable:
+		board_tile_target.set_tile_highlight_colour()
+	
+	elif not enable:
+		board_tile_target.set_tile_default_colour()
+
+	# Display Indicator
+
+func _on_enable_tile_indicators(enable: bool, tiles: Array[Tile]):
+	
+	for tile: Tile in tiles:
+		
+		tile.display_tile_indicators(enable)

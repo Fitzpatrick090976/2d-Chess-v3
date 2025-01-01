@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bvpe8pjgn5fcy"]
+
+[ext_resource type="Script" path="res://Scripts/black.gd" id="1_lex3i"]
+
+[node name="Black" type="Node"]
+script = ExtResource("1_lex3i")

@@ -1,10 +1,13 @@
-[gd_scene load_steps=2 format=3 uid="uid://c1yf1piexpte3"]
+[gd_scene load_steps=3 format=3 uid="uid://c1yf1piexpte3"]
 
 [ext_resource type="PackedScene" uid="uid://cc64by1vkhh2w" path="res://Scenes/board.tscn" id="1_bx6lc"]
+[ext_resource type="PackedScene" uid="uid://bvpe8pjgn5fcy" path="res://Scenes/black.tscn" id="2_1ssx0"]
 
 [node name="Game" type="Node"]
 
 [node name="Camera2D" type="Camera2D" parent="."]
 
 [node name="Board" parent="." instance=ExtResource("1_bx6lc")]
-board_piece_setup = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+board_piece_setup = "4B3/1Q1b4/1R6/R5b1/8/3K2k1/1B6/q3r2r"
+
+[node name="Black" parent="." instance=ExtResource("2_1ssx0")]

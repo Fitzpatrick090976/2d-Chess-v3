@@ -1,8 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://busi15fpf2m6o"]
+[gd_scene load_steps=4 format=3 uid="uid://busi15fpf2m6o"]
 
 [ext_resource type="Script" path="res://Scripts/tile.gd" id="1_nt510"]
+[ext_resource type="Texture2D" uid="uid://bkc3hv0j00wqg" path="res://Art/move_indicator.png" id="2_f3p5r"]
+[ext_resource type="Texture2D" uid="uid://bh8rlkllkrtql" path="res://Art/capture_indicator.png" id="3_mkdav"]
 
-[node name="Tile" type="ColorRect"]
+[node name="Tile" type="ColorRect" node_paths=PackedStringArray("move_indicator", "capture_indicator")]
 custom_minimum_size = Vector2(64, 64)
 anchors_preset = 8
 anchor_left = 0.5
@@ -15,4 +17,23 @@ offset_right = 32.0
 offset_bottom = 32.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
 script = ExtResource("1_nt510")
+move_indicator = NodePath("MoveIndicator")
+capture_indicator = NodePath("CaptureIndicator")
+
+[node name="MoveIndicator" type="Sprite2D" parent="."]
+visible = false
+modulate = Color(1, 1, 1, 0.501961)
+z_index = 100
+position = Vector2(32, 32)
+scale = Vector2(0.031, 0.031)
+texture = ExtResource("2_f3p5r")
+
+[node name="CaptureIndicator" type="Sprite2D" parent="."]
+visible = false
+modulate = Color(1, 1, 1, 0.501961)
+z_index = 100
+position = Vector2(32, 32)
+scale = Vector2(0.125, 0.125)
+texture = ExtResource("3_mkdav")

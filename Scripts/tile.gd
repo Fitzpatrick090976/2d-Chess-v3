@@ -26,3 +26,15 @@ func set_tile_highlight_colour():
 		color = TILE_COLOUR_HIGHLIGHT_DARK
 	else:
 		color = TILE_COLOUR_HIGHLIGHT_LIGHT
+
+	# Display Indicator
+
+@export var move_indicator: Sprite2D
+@export var capture_indicator: Sprite2D
+
+func display_tile_indicators(enable: bool):
+	
+	if tile_piece.piece_exist:
+		capture_indicator.visible = enable
+	elif not tile_piece.piece_exist:
+		move_indicator.visible = enable
