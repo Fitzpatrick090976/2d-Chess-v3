@@ -4,6 +4,7 @@ class_name Tile
 
 @export var tile_index: int
 @export var tile_dark: bool
+@export var tile_virgin: bool
 @export var tile_piece: Piece
 
 # Tile Visual Representation
@@ -38,3 +39,8 @@ func display_tile_indicators(enable: bool):
 		capture_indicator.visible = enable
 	elif not tile_piece.piece_exist:
 		move_indicator.visible = enable
+
+# Cursor Tile Collision
+
+func _on_mouse_entered() -> void:
+	SignalBus.cursor_tile_collision.emit(self)

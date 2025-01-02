@@ -32,7 +32,7 @@ func set_piece_sprite():
 @export var collision_area: Area2D
 
 var cursor_colliding: bool = false
-#var piece_draggable: bool = false
+var piece_draggable: bool = false
 
 func set_collision_area() -> void:
 	
@@ -74,9 +74,37 @@ func _input(event: InputEvent) -> void:
 		
 		# Enable "move indicators"
 		SignalBus.enable_tile_indicators.emit(true, piece_legal_moves)
+		
+		piece_draggable = true
+		z_index += 1
 	
 	elif event.is_action_released("left_click"):
 		
 		# Disable highlight & indicators
 		SignalBus.enable_highlight_tile.emit(false, piece_tile_index)
 		SignalBus.enable_tile_indicators.emit(false, piece_legal_moves)
+		
+		piece_draggable = false
+		z_index -= 1
+		
+
+func _physics_process(delta: float) -> void:
+	if piece_draggable:
+		global_position = get_global_mouse_position()
+
+# Cursor Tile Collision
+
+var piece_last_cursor_tile_collision: Tile
+
+func _ready() -> void:
+	
+	SignalBus.cursor_tile_collision.connect(_on_cursor_tile_collision)
+
+func _on_cursor_tile_collision(tile: Tile):
+	
+	if not piece_draggable:
+		return
+	
+	piece_last_cursor_tile_collision = tile
+	
+	print(piece_last_cursor_tile_collision.tile_index)

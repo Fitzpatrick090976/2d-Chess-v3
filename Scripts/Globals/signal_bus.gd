@@ -11,3 +11,5 @@ signal move_piece(piece_src_tile: Tile, piece_dest_tile: Tile)
 signal enable_highlight_tile(enable: bool, tile_index: int)
 
 signal enable_tile_indicators(enable: bool, tiles: Array[Tile])
+
+signal cursor_tile_collision(tile: Tile)

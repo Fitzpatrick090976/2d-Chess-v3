@@ -22,6 +22,7 @@ func _ready() -> void:
 		var board_tile: Tile = board_parsed_result[board_tile_index]
 		add_child(board_tile)
 		board_tile.set_tile_default_colour()
+		board_tile.tile_virgin = true
 		
 	
 	SignalBus.start_turn.emit.call_deferred(EnumBus.Colour.White)
@@ -41,14 +42,6 @@ func _on_start_turn(colour: EnumBus.Colour):
 	elif colour == EnumBus.Colour.Black:
 		SignalBus.enable_white_control.emit(false)
 		SignalBus.black_move.emit()
-	
-	for tile: Tile in get_children():
-		
-		var piece: Piece = tile.tile_piece
-		if piece.piece_exist:
-			for move: Tile in piece.piece_legal_moves:
-				
-				print(move.tile_index, "\n")
 
 func delete_board_tile_piece_sprites():
 	
@@ -112,6 +105,12 @@ func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 			
 			EnumBus.Type.Knight:
 				repeat = false
+				piece_dirs = [
+					EnumBus.Dir.KnightTopLeft, EnumBus.Dir.KnightTopRight, 
+					EnumBus.Dir.KnightRightTop, EnumBus.Dir.KnightRightBottom, 
+					EnumBus.Dir.KnightBottomRight, EnumBus.Dir.KnightBottomLeft, 
+					EnumBus.Dir.KnightLeftBottom, EnumBus.Dir.KnightLeftTop, 
+				]
 			
 			EnumBus.Type.Rook:
 				repeat = true
@@ -125,12 +124,14 @@ func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 				if colour == EnumBus.Colour.White:
 					piece_dirs = [
 						EnumBus.Dir.North, # Normal
-						EnumBus.Dir.NorthWest, EnumBus.Dir.NorthEast # Capture
+						EnumBus.Dir.NorthWest, EnumBus.Dir.NorthEast, # Capture
+						EnumBus.Dir.WhitePawnDoubleStep
 					]
 				elif colour == EnumBus.Colour.Black:
 					piece_dirs = [
 						EnumBus.Dir.South, # Normal
-						EnumBus.Dir.SouthWest, EnumBus.Dir.SouthEast # Capture
+						EnumBus.Dir.SouthWest, EnumBus.Dir.SouthEast, # Capture
+						EnumBus.Dir.BlackPawnDoubleStep
 					]
 		
 		# For each available direction, determine moves
@@ -153,8 +154,52 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 	
 	# Check if we're a pawn
 	if type == EnumBus.Type.Pawn:
-		# TODO
-		pass
+		# Double step
+		var double_steps: Array[EnumBus.Dir] = [EnumBus.Dir.WhitePawnDoubleStep, EnumBus.Dir.BlackPawnDoubleStep]
+		
+		if dir in double_steps and src_tile.tile_virgin and not dest_tile.tile_piece.piece_exist:
+			var starting_rank: Array
+			if colour == EnumBus.Colour.White:
+				starting_rank = range(48, 56)
+			elif colour == EnumBus.Colour.Black:
+				starting_rank = range(8, 24)
+			
+			if src_tile_index in starting_rank:
+				piece.piece_legal_moves.append(dest_tile)
+				return
+			
+			return
+		
+		# Piece capture
+		var capture_dirs: Array[EnumBus.Dir] = [
+			EnumBus.Dir.NorthWest, EnumBus.Dir.NorthEast, 
+			EnumBus.Dir.SouthWest, EnumBus.Dir.SouthEast, 
+		]
+		
+		if dir in capture_dirs:
+			
+			if not dest_tile.tile_piece.piece_exist:
+				return 
+			# Check if piece colour is opposite colour's
+			var target_piece: Piece = dest_tile.tile_piece
+			
+			if target_piece.piece_colour == colour:
+				# It's our own piece, cannot capture -- direction invalid
+				return
+			elif target_piece.piece_colour != colour:
+				# We can capture this piece
+				piece.piece_legal_moves.append(dest_tile)
+				return
+		
+		# Normal move
+		
+			# Check if dest is occupied by another piece
+		
+		if dest_tile.tile_piece.piece_exist == true:
+			return
+		elif dest_tile.tile_piece.piece_exist == false:
+			piece.piece_legal_moves.append(dest_tile)
+			return
 	
 	# Check if dest is occupied by another piece
 	if dest_tile.tile_piece.piece_exist == true:
@@ -181,11 +226,40 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 func check_if_on_edge_tile(src_tile_index: int, type: EnumBus.Type):
 	
 	if type == EnumBus.Type.Knight:
-		var knight_edge_tiles: Array = [
-			
-		]
+		var knight_top_left_range = range(0, 24)
+		knight_top_left_range.append_array(range(0, 57, 8))
 		
-		# TODO
+		var knight_top_right_range = range(0, 24)
+		knight_top_right_range.append_array(range(7, 64, 8))
+		
+		var knight_right_top_range =  range(7, 64, 8)
+		knight_right_top_range.append_array(range(6, 63, 8))
+		knight_right_top_range.append_array(range(0, 8))
+		
+		var knight_right_bottom_range = range(7, 64, 8)
+		knight_right_bottom_range.append_array(range(6, 63, 8))
+		knight_right_bottom_range.append_array(range(56, 64))
+		
+		var knight_bottom_right_range = range(48, 64)
+		knight_bottom_right_range.append_array(range(7, 64, 8))
+		
+		var knight_bottom_left_range = range(48, 64)
+		knight_bottom_left_range.append_array(range(0, 57, 8))
+		
+		var knight_left_bottom_range = range(0, 57, 8)
+		knight_left_bottom_range.append_array(range(1, 58, 8))
+		knight_left_bottom_range.append_array(range(57, 63))
+		
+		var knight_left_top_range = range(0, 57, 8)
+		knight_left_top_range.append_array(range(1, 58, 8))
+		knight_left_top_range.append_array(range(1, 7))
+		
+		var knight_edge_tiles: Array = [
+			knight_top_left_range, knight_top_right_range, 
+			knight_right_top_range, knight_right_bottom_range, 
+			knight_bottom_right_range, knight_bottom_left_range, 
+			knight_left_bottom_range, knight_left_top_range, 
+		]
 		
 		for knight_edge_tiles_range in knight_edge_tiles:
 			if src_tile_index in knight_edge_tiles_range:
@@ -209,11 +283,60 @@ func check_if_on_edge_tile(src_tile_index: int, type: EnumBus.Type):
 func check_if_dir_forbidden(dir: EnumBus.Dir, src_tile_index: int, type: EnumBus.Type):
 	
 	if type == EnumBus.Type.Knight:
+		var knight_top_left_range = range(0, 24)
+		knight_top_left_range.append_array(range(0, 57, 8))
+		
+		var knight_top_right_range = range(0, 24)
+		knight_top_right_range.append_array(range(7, 64, 8))
+		
+		var knight_right_top_range =  range(7, 64, 8)
+		knight_right_top_range.append_array(range(6, 63, 8))
+		knight_right_top_range.append_array(range(0, 8))
+		
+		var knight_right_bottom_range = range(7, 64, 8)
+		knight_right_bottom_range.append_array(range(6, 63, 8))
+		knight_right_bottom_range.append_array(range(56, 64))
+		
+		var knight_bottom_right_range = range(48, 64)
+		knight_bottom_right_range.append_array(range(7, 64, 8))
+		
+		var knight_bottom_left_range = range(48, 64)
+		knight_bottom_left_range.append_array(range(0, 57, 8))
+		
+		var knight_left_bottom_range = range(0, 57, 8)
+		knight_left_bottom_range.append_array(range(1, 58, 8))
+		knight_left_bottom_range.append_array(range(57, 63))
+		
+		var knight_left_top_range = range(0, 57, 8)
+		knight_left_top_range.append_array(range(1, 58, 8))
+		knight_left_top_range.append_array(range(1, 7))
+		
 		var knight_edge_tiles: Array = [
-			
+			knight_top_left_range, knight_top_right_range, 
+			knight_right_top_range, knight_right_bottom_range, 
+			knight_bottom_right_range, knight_bottom_left_range, 
+			knight_left_bottom_range, knight_left_top_range, 
 		]
 		
-		# TODO
+		var knight_edge_tiles_forbidden_dirs: Dictionary = {
+			str(knight_top_left_range): EnumBus.Dir.KnightTopLeft, 
+			str(knight_top_right_range): EnumBus.Dir.KnightTopRight, 
+			str(knight_right_top_range): EnumBus.Dir.KnightRightTop, 
+			str(knight_right_bottom_range): EnumBus.Dir.KnightRightBottom, 
+			str(knight_bottom_right_range): EnumBus.Dir.KnightBottomRight, 
+			str(knight_bottom_left_range): EnumBus.Dir.KnightBottomLeft, 
+			str(knight_left_bottom_range): EnumBus.Dir.KnightLeftBottom, 
+			str(knight_left_top_range): EnumBus.Dir.KnightLeftTop, 
+		}
+		
+		var my_forbidden_dirs: Array[EnumBus.Dir] = []
+		for knight_edge_tiles_range in knight_edge_tiles:
+			if src_tile_index in knight_edge_tiles_range:
+				my_forbidden_dirs.append(knight_edge_tiles_forbidden_dirs[str(knight_edge_tiles_range)])
+		
+		# Check if the direction that we intend to move in is forbidden
+		if dir in my_forbidden_dirs:
+			return true
 	
 	elif type != EnumBus.Type.Knight:
 		var normal_edge_tiles: Array = [ # Array of ranges containing "edge tiles"
