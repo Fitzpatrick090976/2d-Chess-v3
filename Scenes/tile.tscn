@@ -7,7 +7,7 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dwddj"]
 size = Vector2(64, 64)
 
-[node name="Tile" type="ColorRect" node_paths=PackedStringArray("move_indicator", "capture_indicator")]
+[node name="Tile" type="ColorRect" node_paths=PackedStringArray("move_indicator", "capture_indicator", "tile_collider")]
 custom_minimum_size = Vector2(64, 64)
 anchors_preset = 8
 anchor_left = 0.5
@@ -24,6 +24,7 @@ mouse_filter = 1
 script = ExtResource("1_nt510")
 move_indicator = NodePath("MoveIndicator")
 capture_indicator = NodePath("CaptureIndicator")
+tile_collider = NodePath("TileCollider")
 
 [node name="MoveIndicator" type="Sprite2D" parent="."]
 visible = false
@@ -41,10 +42,9 @@ position = Vector2(32, 32)
 scale = Vector2(0.125, 0.125)
 texture = ExtResource("3_mkdav")
 
-[node name="StaticBody2D" type="StaticBody2D" parent="."]
+[node name="TileCollider" type="StaticBody2D" parent="."]
+input_pickable = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TileCollider"]
 position = Vector2(32, 32)
 shape = SubResource("RectangleShape2D_dwddj")
-
-[connection signal="mouse_entered" from="StaticBody2D" to="." method="_on_mouse_entered"]

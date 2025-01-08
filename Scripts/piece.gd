@@ -15,7 +15,10 @@ class_name Piece
 
 func set_piece_sprite():
 	
+	visible = true
+	
 	if not piece_exist:
+		visible = false
 		return
 	
 	if piece_colour == EnumBus.Colour.White:
@@ -54,6 +57,9 @@ func _on_mouse_exited():
 
 func _input(event: InputEvent) -> void:
 	
+	if not white_control:
+		return
+	
 	if event is InputEventMouseMotion:
 		return
 	
@@ -76,7 +82,7 @@ func _input(event: InputEvent) -> void:
 		SignalBus.enable_tile_indicators.emit(true, piece_legal_moves)
 		
 		piece_draggable = true
-		z_index += 1
+		z_index = 200
 	
 	elif event.is_action_released("left_click"):
 		
@@ -85,7 +91,12 @@ func _input(event: InputEvent) -> void:
 		SignalBus.enable_tile_indicators.emit(false, piece_legal_moves)
 		
 		piece_draggable = false
-		z_index -= 1
+		z_index = 50
+		
+		if piece_last_cursor_tile_collision in piece_legal_moves:
+			SignalBus.move_piece.emit(piece_tile_index, piece_last_cursor_tile_collision.tile_index, EnumBus.Colour.White)
+		else:
+			SignalBus.start_turn.emit(EnumBus.Colour.White)
 		
 
 func _physics_process(delta: float) -> void:
@@ -99,6 +110,7 @@ var piece_last_cursor_tile_collision: Tile
 func _ready() -> void:
 	
 	SignalBus.cursor_tile_collision.connect(_on_cursor_tile_collision)
+	SignalBus.enable_white_control.connect(_on_enable_white_control)
 
 func _on_cursor_tile_collision(tile: Tile):
 	
@@ -106,5 +118,9 @@ func _on_cursor_tile_collision(tile: Tile):
 		return
 	
 	piece_last_cursor_tile_collision = tile
+
+var white_control: bool = false
+
+func _on_enable_white_control(enable: bool):
 	
-	print(piece_last_cursor_tile_collision.tile_index)
+	white_control = enable

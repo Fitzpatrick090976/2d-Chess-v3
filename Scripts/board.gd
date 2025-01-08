@@ -21,6 +21,7 @@ func _ready() -> void:
 	for board_tile_index: int in range(BOARD_TILE_COUNT):
 		var board_tile: Tile = board_parsed_result[board_tile_index]
 		add_child(board_tile)
+		board_tile.set_collider()
 		board_tile.set_tile_default_colour()
 		board_tile.tile_virgin = true
 		
@@ -46,20 +47,46 @@ func _on_start_turn(colour: EnumBus.Colour):
 func delete_board_tile_piece_sprites():
 	
 	for board_tile: Tile in get_children():
-		for board_tile_piece in board_tile.get_children():
-			if board_tile_piece is not Piece:
-				continue
-			
-			board_tile_piece.queue_free()
+		
+		var board_tile_children: Array = board_tile.get_children()
+		if not board_tile_children.has(board_tile.tile_piece): # Check if "first time" (has child been added yet?)
+			break
+		var board_tile_piece_index: int = board_tile_children.find(board_tile.tile_piece)
+		board_tile_children[board_tile_piece_index].queue_free()
+		
+		# DELETE
+		#for board_tile_piece in board_tile.get_children():
+			#if board_tile_piece is not Piece:
+				#continue
+			#
+			#board_tile_piece.queue_free()
 
 func instance_board_tile_piece_sprites():
 	
 	for board_tile: Tile in get_children():
-		var board_tile_piece: Piece = board_tile.tile_piece
-		board_tile.add_child(board_tile_piece)
-		board_tile_piece.set_piece_sprite()
-		board_tile_piece.set_collision_area()
-		board_tile_piece.global_position = board_tile.get_global_rect().position + BOARD_TILE_PIECE_OFFSET
+		
+		var prev_board_tile_piece: Piece = board_tile.tile_piece
+		var new_board_tile_piece = copy_prev_board_tile_piece_properties(prev_board_tile_piece)
+		prev_board_tile_piece.queue_free()
+		board_tile.tile_piece = new_board_tile_piece
+		board_tile.add_child(new_board_tile_piece)
+		
+		new_board_tile_piece.set_piece_sprite()
+		new_board_tile_piece.set_collision_area()
+		new_board_tile_piece.global_position = board_tile.get_global_rect().position + BOARD_TILE_PIECE_OFFSET
+
+func copy_prev_board_tile_piece_properties(prev_board_tile_piece: Piece):
+	
+	var new_board_tile_piece = PIECE.instantiate()
+	
+	new_board_tile_piece.piece_exist = prev_board_tile_piece.piece_exist
+	new_board_tile_piece.piece_index = prev_board_tile_piece.piece_index
+	new_board_tile_piece.piece_tile_index = prev_board_tile_piece.piece_tile_index
+	new_board_tile_piece.piece_colour = prev_board_tile_piece.piece_colour
+	new_board_tile_piece.piece_type = prev_board_tile_piece.piece_type
+	new_board_tile_piece.piece_legal_moves = prev_board_tile_piece.piece_legal_moves
+	
+	return new_board_tile_piece
 
 func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 	
@@ -497,9 +524,27 @@ func parse_board_piece_setup():
 
 # Piece Movement
 
-func _on_move_piece(piece_src_tile: Tile, piece_dest_tile: Tile):
+func _on_move_piece(piece_src_tile_index: int, piece_dest_tile_index: int, colour: EnumBus.Colour):
 	
-	pass
+	var board_matrix: Array = get_children()
+	var src_tile: Tile = board_matrix[piece_src_tile_index]
+	var dest_tile: Tile = board_matrix[piece_dest_tile_index]
+	
+	# Update dest to reflect movement
+	dest_tile.tile_virgin = false
+	dest_tile.tile_piece = src_tile.tile_piece # Piece's movement
+	dest_tile.tile_piece.piece_tile_index = dest_tile.tile_index # Update piece's internal knowledge of location, i.e. the tile it's standing on
+	
+	# Update src, i.e. clear the tile
+	src_tile.tile_virgin = false
+	src_tile.tile_piece.queue_free() # Reset the piece
+	src_tile.tile_piece = PIECE.instantiate()
+	src_tile.tile_piece.piece_exist = false
+	
+	if colour == EnumBus.Colour.White:
+		SignalBus.start_turn.emit(EnumBus.Colour.Black)
+	elif colour == EnumBus.Colour.Black:
+		SignalBus.start_turn.emit(EnumBus.Colour.White)
 
 # Board Tile Visual Management
 

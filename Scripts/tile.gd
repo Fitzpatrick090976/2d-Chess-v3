@@ -42,5 +42,12 @@ func display_tile_indicators(enable: bool):
 
 # Cursor Tile Collision
 
-func _on_mouse_entered() -> void:
+@export var tile_collider: StaticBody2D
+
+func set_collider():
+	
+	tile_collider.mouse_entered.connect(_on_mouse_entered)
+
+func _on_mouse_entered():
+	
 	SignalBus.cursor_tile_collision.emit(self)

@@ -8,5 +8,5 @@ func _ready() -> void:
 
 func _on_black_move():
 	
-	pass
+	print("_on_black_move")
 	# Produce a valid source & destination
