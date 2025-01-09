@@ -5,6 +5,9 @@ class_name Board
 const BOARD_TILE_COUNT: int = 64
 const BOARD_TILE_PIECE_OFFSET: Vector2 = Vector2(32, 32)
 
+var white_en_passant_tile: Tile = null
+var black_en_passant_tile: Tile = null
+
 # Initial Game Setup
 
 @export var board_piece_setup: String
@@ -35,6 +38,8 @@ func _on_start_turn(colour: EnumBus.Colour):
 	delete_board_tile_piece_sprites()
 	
 	instance_board_tile_piece_sprites()
+	
+	disable_en_passant_tile(colour)
 	
 	calculate_board_tile_piece_legal_moves(colour)
 	
@@ -80,6 +85,14 @@ func copy_prev_board_tile_piece_properties(prev_board_tile_piece: Piece):
 	new_board_tile_piece.piece_legal_moves = prev_board_tile_piece.piece_legal_moves
 	
 	return new_board_tile_piece
+
+func disable_en_passant_tile(colour: EnumBus.Colour):
+	
+	match colour:
+		EnumBus.Colour.White:
+			white_en_passant_tile = null
+		EnumBus.Colour.Black:
+			black_en_passant_tile = null
 
 func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 	
@@ -204,11 +217,22 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 			if dest_tile.tile_piece.piece_exist:
 				return
 			
+			var passing_tile_index: int
+			match dir:
+				EnumBus.Dir.WhitePawnDoubleStep:
+					passing_tile_index = dest_tile.tile_index + (EnumBus.Dir.South)
+				EnumBus.Dir.BlackPawnDoubleStep:
+					passing_tile_index = dest_tile.tile_index + (EnumBus.Dir.North)
+			var passing_tile: Tile = board_matrix[passing_tile_index]
+			
+			if passing_tile.tile_piece.piece_exist:
+				return
+			
 			var starting_rank: Array
 			if colour == EnumBus.Colour.White:
 				starting_rank = range(48, 56)
 			elif colour == EnumBus.Colour.Black:
-				starting_rank = range(8, 24)
+				starting_rank = range(8, 16)
 			
 			if src_tile_index not in starting_rank:
 				return
@@ -225,7 +249,18 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 		if dir in capture_dirs:
 			
 			if not dest_tile.tile_piece.piece_exist:
-				return 
+				# En Passant
+				var en_passant_tile: Tile
+				match colour:
+					EnumBus.Colour.White:
+						en_passant_tile = black_en_passant_tile
+					EnumBus.Colour.Black:
+						en_passant_tile = white_en_passant_tile
+				if dest_tile == en_passant_tile:
+					piece.piece_legal_moves.append(dest_tile)
+					return
+				return
+			
 			# Check if piece colour is opposite colour's
 			var target_piece: Piece = dest_tile.tile_piece
 			
@@ -598,6 +633,41 @@ func _on_move_piece(piece_src_tile_index: int, piece_dest_tile_index: int, colou
 	var src_tile: Tile = board_matrix[piece_src_tile_index]
 	var dest_tile: Tile = board_matrix[piece_dest_tile_index]
 	
+	# En Passant
+	
+	if check_if_move_is_double_step(src_tile, dest_tile):
+		
+		var passing_tile_index: int
+		match colour:
+			EnumBus.Colour.White:
+				passing_tile_index = dest_tile.tile_index + (EnumBus.Dir.South)
+				white_en_passant_tile = board_matrix[passing_tile_index]
+			EnumBus.Colour.Black:
+				passing_tile_index = dest_tile.tile_index + (EnumBus.Dir.North)
+				black_en_passant_tile = board_matrix[passing_tile_index]
+	
+	if check_if_move_is_en_passant(src_tile, dest_tile):
+		
+		# Capture the offending pawn
+		var target_pawn_position_tile_index: int
+		match colour:
+			EnumBus.Colour.White:
+				target_pawn_position_tile_index = dest_tile.tile_index + (EnumBus.Dir.South)
+			EnumBus.Colour.Black:
+				target_pawn_position_tile_index = dest_tile.tile_index + (EnumBus.Dir.North)
+		var target_pawn_position_tile: Tile = board_matrix[target_pawn_position_tile_index]
+		
+		# Remove the captured pawn's sprite
+		var target_pawn_position_tile_children: Array = target_pawn_position_tile.get_children()
+		var target_pawn_position_tile_piece_index: int = target_pawn_position_tile_children.find(target_pawn_position_tile.tile_piece)
+		target_pawn_position_tile_children[target_pawn_position_tile_piece_index].queue_free()
+		
+		# Clear the captured pawn's tile
+		target_pawn_position_tile.tile_virgin = false
+		target_pawn_position_tile.tile_piece.queue_free()
+		target_pawn_position_tile.tile_piece = PIECE.instantiate()
+		target_pawn_position_tile.tile_piece.piece_exist = false
+	
 	# Castling
 	
 	if check_if_move_is_castling(src_tile, dest_tile):
@@ -663,6 +733,42 @@ func _on_move_piece(piece_src_tile_index: int, piece_dest_tile_index: int, colou
 		SignalBus.start_turn.emit(EnumBus.Colour.Black)
 	elif colour == EnumBus.Colour.Black:
 		SignalBus.start_turn.emit(EnumBus.Colour.White)
+
+	# En Passant
+
+func check_if_move_is_double_step(src_tile: Tile, dest_tile: Tile):
+	
+	if src_tile.tile_piece.piece_type != EnumBus.Type.Pawn:
+		return false
+	
+	var dir: EnumBus.Dir = dest_tile.tile_index - src_tile.tile_index
+	var double_steps: Array[EnumBus.Dir] = [
+		EnumBus.Dir.WhitePawnDoubleStep, EnumBus.Dir.BlackPawnDoubleStep
+	]
+	if dir not in double_steps:
+		return false
+	
+	return true
+
+func check_if_move_is_en_passant(src_tile: Tile, dest_tile: Tile):
+	
+	if src_tile.tile_piece.piece_type != EnumBus.Type.Pawn:
+		return false
+	
+	var dir: EnumBus.Dir = dest_tile.tile_index - src_tile.tile_index
+	var capture_dirs: Array[EnumBus.Dir] = [
+		EnumBus.Dir.NorthWest, EnumBus.Dir.NorthEast, 
+		EnumBus.Dir.SouthWest, EnumBus.Dir.SouthEast, 
+	]
+	if dir not in capture_dirs:
+		return false
+	
+	# Thus far we have determined that it must be (a) en passant, or (b) normal pawn capture
+	
+	if dest_tile.tile_piece.piece_exist:
+		return false
+	
+	return true
 
 	# Castling
 
