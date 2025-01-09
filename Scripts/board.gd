@@ -53,13 +53,6 @@ func delete_board_tile_piece_sprites():
 			break
 		var board_tile_piece_index: int = board_tile_children.find(board_tile.tile_piece)
 		board_tile_children[board_tile_piece_index].queue_free()
-		
-		# DELETE
-		#for board_tile_piece in board_tile.get_children():
-			#if board_tile_piece is not Piece:
-				#continue
-			#
-			#board_tile_piece.queue_free()
 
 func instance_board_tile_piece_sprites():
 	
@@ -114,6 +107,8 @@ func calculate_board_tile_piece_legal_moves(colour: EnumBus.Colour):
 				piece_dirs = [
 					EnumBus.Dir.NorthWest, EnumBus.Dir.North, EnumBus.Dir.NorthEast, EnumBus.Dir.East, 
 					EnumBus.Dir.SouthEast, EnumBus.Dir.South, EnumBus.Dir.SouthWest, EnumBus.Dir.West, 
+					
+					EnumBus.Dir.KingCastlingQueenside, EnumBus.Dir.KingCastlingKingside, 
 				]
 			
 			EnumBus.Type.Queen:
@@ -175,26 +170,50 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 			return
 	
 	var dest_tile_index: int = src_tile_index + dir
+	if dest_tile_index not in range(BOARD_TILE_COUNT):
+		return # Prevent the "double step problem"
 	var board_matrix: Array = get_children()
 	var src_tile: Tile = board_matrix[src_tile_index]
 	var dest_tile: Tile = board_matrix[dest_tile_index]
+	
+	# King castling
+	if type == EnumBus.Type.King:
+		
+		var castling_dirs: Array[EnumBus.Dir] = [
+			EnumBus.Dir.KingCastlingQueenside, EnumBus.Dir.KingCastlingKingside
+		]
+		
+		if dir in castling_dirs:
+			
+			if check_if_castling_is_legal(dir, src_tile_index, colour):
+				piece.piece_legal_moves.append(dest_tile)
+				return
+			else:
+				return
 	
 	# Check if we're a pawn
 	if type == EnumBus.Type.Pawn:
 		# Double step
 		var double_steps: Array[EnumBus.Dir] = [EnumBus.Dir.WhitePawnDoubleStep, EnumBus.Dir.BlackPawnDoubleStep]
 		
-		if dir in double_steps and src_tile.tile_virgin and not dest_tile.tile_piece.piece_exist:
+		if dir in double_steps:
+			
+			if not src_tile.tile_virgin:
+				return
+			
+			if dest_tile.tile_piece.piece_exist:
+				return
+			
 			var starting_rank: Array
 			if colour == EnumBus.Colour.White:
 				starting_rank = range(48, 56)
 			elif colour == EnumBus.Colour.Black:
 				starting_rank = range(8, 24)
 			
-			if src_tile_index in starting_rank:
-				piece.piece_legal_moves.append(dest_tile)
+			if src_tile_index not in starting_rank:
 				return
 			
+			piece.piece_legal_moves.append(dest_tile)
 			return
 		
 		# Piece capture
@@ -249,6 +268,52 @@ func generate_legal_moves_for_direction(repeat: bool, dir: EnumBus.Dir, src_tile
 		generate_legal_moves_for_direction(repeat, dir, dest_tile_index, type, colour, piece)
 	elif not repeat:
 		return
+
+func check_if_castling_is_legal(dir: EnumBus.Dir, src_tile_index: int, colour: EnumBus.Colour):
+	
+	var correct_king_castling_position_tile_index: int
+	if colour == EnumBus.Colour.White:
+		correct_king_castling_position_tile_index = 60
+	elif colour == EnumBus.Colour.Black:
+		correct_king_castling_position_tile_index = 4
+	
+	# The king must be on the right tile
+	if src_tile_index != correct_king_castling_position_tile_index:
+		return false
+	
+	var board_matrix: Array = get_children()
+	var king_tile: Tile = board_matrix[src_tile_index]
+	
+	# The king must not have previously moved
+	if not king_tile.tile_virgin:
+		return false
+	
+	var rook_tile_index: int
+	match dir:
+		EnumBus.Dir.KingCastlingQueenside:
+			rook_tile_index = src_tile_index + (EnumBus.Dir.West * 4)
+		EnumBus.Dir.KingCastlingKingside:
+			rook_tile_index = src_tile_index + (EnumBus.Dir.East * 3)
+	var rook_tile: Tile = board_matrix[rook_tile_index]
+	
+	# The rook must not have previously moved
+	if not rook_tile.tile_virgin:
+		return false
+	
+	var vacant_tile_index_range: Array
+	match dir:
+		EnumBus.Dir.KingCastlingQueenside:
+			vacant_tile_index_range = range(rook_tile_index + 1, src_tile_index)
+		EnumBus.Dir.KingCastlingKingside:
+			vacant_tile_index_range = range(src_tile_index + 1, rook_tile_index)
+	
+	# Each tile between the rook and the king must be vacant
+	for tile_index in vacant_tile_index_range:
+		var vacant_tile: Tile = board_matrix[tile_index]
+		if vacant_tile.tile_piece.piece_exist:
+			return false
+	
+	return true
 
 func check_if_on_edge_tile(src_tile_index: int, type: EnumBus.Type):
 	
@@ -310,10 +375,10 @@ func check_if_on_edge_tile(src_tile_index: int, type: EnumBus.Type):
 func check_if_dir_forbidden(dir: EnumBus.Dir, src_tile_index: int, type: EnumBus.Type):
 	
 	if type == EnumBus.Type.Knight:
-		var knight_top_left_range = range(0, 24)
+		var knight_top_left_range = range(0, 16)
 		knight_top_left_range.append_array(range(0, 57, 8))
 		
-		var knight_top_right_range = range(0, 24)
+		var knight_top_right_range = range(0, 16)
 		knight_top_right_range.append_array(range(7, 64, 8))
 		
 		var knight_right_top_range =  range(7, 64, 8)
@@ -524,11 +589,51 @@ func parse_board_piece_setup():
 
 # Piece Movement
 
+var prev_src_tile: Tile
+var prev_dest_tile: Tile
+
 func _on_move_piece(piece_src_tile_index: int, piece_dest_tile_index: int, colour: EnumBus.Colour):
 	
 	var board_matrix: Array = get_children()
 	var src_tile: Tile = board_matrix[piece_src_tile_index]
 	var dest_tile: Tile = board_matrix[piece_dest_tile_index]
+	
+	# Castling
+	
+	if check_if_move_is_castling(src_tile, dest_tile):
+		
+		# Determine the position & destination of the rook
+		var rook_src_tile_index: int
+		var rook_dest_tile_index: int
+		var dir: EnumBus.Dir = dest_tile.tile_index - src_tile.tile_index
+		match dir:
+			EnumBus.Dir.KingCastlingQueenside:
+				rook_src_tile_index = src_tile.tile_index + (EnumBus.Dir.West * 4)
+				rook_dest_tile_index = src_tile.tile_index + (EnumBus.Dir.West * 1)
+			EnumBus.Dir.KingCastlingKingside:
+				rook_src_tile_index = src_tile.tile_index + (EnumBus.Dir.East * 3)
+				rook_dest_tile_index = src_tile.tile_index + (EnumBus.Dir.East * 1)
+		
+		var rook_src_tile: Tile = board_matrix[rook_src_tile_index]
+		var rook_dest_tile: Tile = board_matrix[rook_dest_tile_index]
+		
+		# Update dest to reflect movement
+		rook_dest_tile.tile_virgin = false
+		rook_dest_tile.tile_piece = rook_src_tile.tile_piece
+		rook_dest_tile.tile_piece.piece_tile_index = rook_dest_tile.tile_index
+		
+		# Update src, i.e. clear the tile
+		rook_src_tile.tile_virgin = false
+		rook_src_tile.tile_piece.queue_free()
+		rook_src_tile.tile_piece = PIECE.instantiate()
+		rook_src_tile.tile_piece.piece_exist = false
+	
+	# Capture piece
+	if dest_tile.tile_piece.piece_exist:
+		# Remove the sprite, i.e. free it
+		var dest_tile_children: Array = dest_tile.get_children()
+		var dest_tile_piece_index: int = dest_tile_children.find(dest_tile.tile_piece)
+		dest_tile_children[dest_tile_piece_index].queue_free()
 	
 	# Update dest to reflect movement
 	dest_tile.tile_virgin = false
@@ -541,10 +646,42 @@ func _on_move_piece(piece_src_tile_index: int, piece_dest_tile_index: int, colou
 	src_tile.tile_piece = PIECE.instantiate()
 	src_tile.tile_piece.piece_exist = false
 	
+	# Highlight src, dest & disable prev
+	
+	SignalBus.enable_highlight_tile.emit(true, src_tile.tile_index)
+	SignalBus.enable_highlight_tile.emit(true, dest_tile.tile_index)
+	
+	if prev_src_tile != null:
+		SignalBus.enable_highlight_tile.emit(false, prev_src_tile.tile_index)
+	if prev_dest_tile != null:
+		SignalBus.enable_highlight_tile.emit(false, prev_dest_tile.tile_index)
+	
+	prev_src_tile = src_tile
+	prev_dest_tile = dest_tile
+	
 	if colour == EnumBus.Colour.White:
 		SignalBus.start_turn.emit(EnumBus.Colour.Black)
 	elif colour == EnumBus.Colour.Black:
 		SignalBus.start_turn.emit(EnumBus.Colour.White)
+
+	# Castling
+
+func check_if_move_is_castling(src_tile: Tile, dest_tile: Tile):
+	
+	# Check if piece is a king
+	if src_tile.tile_piece.piece_type != EnumBus.Type.King:
+		return false
+	
+	var dir: EnumBus.Dir = dest_tile.tile_index - src_tile.tile_index
+	var castling_dirs: Array[EnumBus.Dir] = [
+		EnumBus.Dir.KingCastlingQueenside, EnumBus.Dir.KingCastlingKingside
+	]
+	
+	# Check if king is castling
+	if dir not in castling_dirs:
+		return false
+	
+	return true
 
 # Board Tile Visual Management
 

@@ -17,5 +17,7 @@ enum Dir {
 	KnightBottomRight = 17, KnightBottomLeft = 15, 
 	KnightLeftBottom = 6, KnightLeftTop = -10, 
 	
-	WhitePawnDoubleStep = -16, BlackPawnDoubleStep = 16
+	WhitePawnDoubleStep = -16, BlackPawnDoubleStep = 16, 
+	
+	KingCastlingQueenside = -2, KingCastlingKingside = 2
 }

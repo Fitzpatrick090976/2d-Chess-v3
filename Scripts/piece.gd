@@ -99,7 +99,7 @@ func _input(event: InputEvent) -> void:
 			SignalBus.start_turn.emit(EnumBus.Colour.White)
 		
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if piece_draggable:
 		global_position = get_global_mouse_position()
 

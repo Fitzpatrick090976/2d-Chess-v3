@@ -10,4 +10,5 @@
 [node name="Board" parent="." instance=ExtResource("1_bx6lc")]
 board_piece_setup = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 
-[node name="Black" parent="." instance=ExtResource("2_1ssx0")]
+[node name="Black" parent="." node_paths=PackedStringArray("board") instance=ExtResource("2_1ssx0")]
+board = NodePath("../Board")
